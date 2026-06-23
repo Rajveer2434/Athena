@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-
+from modules.speech_to_text import transcribe_audio
 from modules.ai_chat import ask_ai
 from modules.task_manager import add_task, get_tasks
 from modules.notes_manager import add_note, get_notes
@@ -420,7 +420,6 @@ if menu == "Dashboard":
         else:
             st.markdown('<div class="note-item" style="color:#8B949E;text-align:center;padding:2rem;">No notes yet — start writing in Notes.</div>', unsafe_allow_html=True)
 
-
 # AI Chat
 elif menu == "AI Chat":
 
@@ -431,67 +430,81 @@ elif menu == "AI Chat":
     </div>
     """, unsafe_allow_html=True)
 
-    with st.container():
+    # Voice Recorder
+    audio = mic_recorder(
+        start_prompt="🎤 Start Recording",
+        stop_prompt="⏹ Stop Recording",
+        just_once=True
+    )
 
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+    if audio:
 
-        audio = mic_recorder(
-            start_prompt="🎤 Start Recording",
-            stop_prompt="⏹ Stop Recording",
-            just_once=True
-        )
+        try:
 
-        prompt = st.text_area(
-            "Your message",
-            placeholder="What would you like to know?",
-            height=130,
-            label_visibility="visible"
-        )
-
-        col_btn, col_tip = st.columns([1, 4])
-
-        with col_btn:
-            send = st.button(
-                "Send →",
-                use_container_width=True
+            voice_text = transcribe_audio(
+                audio["bytes"]
             )
 
-        with col_tip:
-            st.markdown(
-                '<p style="color:#8B949E;font-size:0.8rem;margin-top:0.65rem;">Press Send or Ctrl+Enter</p>',
-                unsafe_allow_html=True
-            )
+            st.success("🎤 Voice converted to text!")
 
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.session_state["voice_prompt"] = voice_text
+
+        except Exception as e:
+
+            st.error(f"Speech-to-text failed: {e}")
+
+    # Chat Input
+    prompt = st.text_area(
+        "Your message",
+        value=st.session_state.get(
+            "voice_prompt",
+            ""
+        ),
+        placeholder="What would you like to know?",
+        height=130
+    )
+
+    col1, col2 = st.columns([1, 4])
+
+    with col1:
+        send = st.button(
+            "Send →",
+            use_container_width=True
+        )
+
+    with col2:
+        st.caption("Press Send or Ctrl+Enter")
 
     # Generate Response
-    if send and prompt.strip():
+    if send:
 
-        with st.spinner("Thinking..."):
+        if prompt.strip():
 
-            answer = ask_ai(prompt)
+            with st.spinner("Thinking..."):
 
-            save_chat(prompt, answer)
+                answer = ask_ai(prompt)
 
-            st.session_state["last_answer"] = answer
+                save_chat(prompt, answer)
 
-    elif send and not prompt.strip():
+                st.session_state["last_answer"] = answer
 
-        st.warning("Type a message first.")
+        else:
 
-    # Show Last Response
+            st.warning("Type a message first.")
+
+    # Show Response
     if "last_answer" in st.session_state:
 
         st.markdown(
-            f'''
+            f"""
             <div class="chat-response">
                 {st.session_state["last_answer"]}
             </div>
-            ''',
+            """,
             unsafe_allow_html=True
         )
 
-    # Voice Controls
+    # Voice Output
     if voice_enabled and "last_answer" in st.session_state:
 
         col1, col2 = st.columns(2)
@@ -533,7 +546,6 @@ elif menu == "AI Chat":
                     """,
                     height=0,
                 )
-
 
 # Tasks
 elif menu == "Tasks":
