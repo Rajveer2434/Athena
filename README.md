@@ -179,7 +179,7 @@ streamlit run app.py
 
 ## 👨‍💻 Author
 
-**Adarsh Mundhe**
+**Rajveer Rajput**
 
 B.Sc Data Science
 Savitribai Phule Pune University
